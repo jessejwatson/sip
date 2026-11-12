@@ -6,20 +6,9 @@ struct SipApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra {
-            MenuContent()
-                .environment(appDelegate.model)
-                .environment(appDelegate.model.store)
-        } label: {
-            MenuBarIcon(store: appDelegate.model.store)
-        }
-        .menuBarExtraStyle(.window)
-
-        Settings {
-            SettingsView()
-                .environment(appDelegate.model)
-                .environment(appDelegate.model.store)
-        }
+        // The menu bar panel and every window are managed by AppModel. SwiftUI needs a scene, and an
+        // empty Settings scene opens a blank window at launch, so use a menu bar extra that's never shown.
+        MenuBarExtra("Sip", systemImage: "drop", isInserted: .constant(false)) { EmptyView() }
     }
 }
 
@@ -47,7 +36,9 @@ final class AppModel {
     @ObservationIgnored let notifications = Notifications()
     @ObservationIgnored let presence = PresenceMonitor()
     @ObservationIgnored private(set) var engine: ReminderEngine!
+    @ObservationIgnored private var statusItem: StatusItemController?
     @ObservationIgnored private var onboardingWindow: NSWindow?
+    @ObservationIgnored private var settingsWindow: NSWindow?
     @ObservationIgnored private var observers: [NSObjectProtocol] = []
 
     init(store: Store = Store()) {
@@ -87,6 +78,7 @@ final class AppModel {
         }
 
         engine.start()
+        statusItem = StatusItemController(model: self)
 
         if !store.settings.hasOnboarded { showOnboarding() }
     }
@@ -111,55 +103,37 @@ final class AppModel {
 
     func showOnboarding() {
         if onboardingWindow == nil {
-            let host = NSHostingController(rootView: OnboardingView().environment(self).environment(store))
-            let window = NSWindow(contentViewController: host)
-            window.title = "Welcome to Sip"
-            window.styleMask = [.titled, .closable]
-            window.isReleasedWhenClosed = false
-            onboardingWindow = window
+            onboardingWindow = makeWindow(title: "Welcome to Sip", content: OnboardingView())
         }
-        onboardingWindow?.center()
+        present(onboardingWindow)
+    }
+
+    func showSettings() {
+        if settingsWindow == nil {
+            settingsWindow = makeWindow(title: "Sip Settings", content: SettingsView())
+        }
+        present(settingsWindow)
+    }
+
+    private func makeWindow(title: String, content: some View) -> NSWindow {
+        let host = NSHostingController(rootView: content.environment(self).environment(store))
+        let window = NSWindow(contentViewController: host)
+        window.title = title
+        window.styleMask = [.titled, .closable]
+        window.isReleasedWhenClosed = false
+        window.center()
+        return window
+    }
+
+    private func present(_ window: NSWindow?) {
+        statusItem?.close()
         NSApp.activate()
-        onboardingWindow?.makeKeyAndOrderFront(nil)
+        window?.makeKeyAndOrderFront(nil)
     }
 
     func resetAllData() {
         store.resetAll()
         LoginItem.setEnabled(false)
         showOnboarding()
-    }
-}
-
-struct MenuBarIcon: View {
-    let store: Store
-
-    var body: some View {
-        Image(nsImage: Self.image(symbol: symbolName, dimmed: store.isTodayOff))
-            .accessibilityLabel("Sip, \(Int((store.todayFraction * 100).rounded()))% of today's goal")
-    }
-
-    private var symbolName: String {
-        if store.isTodayOff { return "drop" }
-        let fraction = store.todayFraction
-        if fraction >= 1 { return "drop.fill" }
-        if fraction >= 0.34 { return "drop.halffull" }
-        return "drop"
-    }
-
-    /// Menu bar labels ignore SwiftUI opacity, so dimming is baked into a template image's alpha.
-    private static func image(symbol: String, dimmed: Bool) -> NSImage {
-        let base = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-            ?? NSImage(systemSymbolName: "drop", accessibilityDescription: nil)
-            ?? NSImage()
-        guard dimmed else {
-            base.isTemplate = true
-            return base
-        }
-        let dimmedImage = NSImage(size: base.size, flipped: false) { rect in
-            base.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 0.4)
-            return true
-        }
-        dimmedImage.isTemplate = true
-        return dimmedImage
     }
 }

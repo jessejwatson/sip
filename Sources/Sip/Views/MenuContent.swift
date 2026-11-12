@@ -3,7 +3,6 @@ import SwiftUI
 struct MenuContent: View {
     @Environment(AppModel.self) private var model
     @Environment(Store.self) private var store
-    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(spacing: 12) {
@@ -27,8 +26,7 @@ struct MenuContent: View {
     private var footer: some View {
         HStack(spacing: 2) {
             Button {
-                NSApp.activate()
-                openSettings()
+                model.showSettings()
             } label: {
                 Label("Settings", systemImage: "gearshape")
             }
@@ -389,17 +387,15 @@ private struct FooterButtonStyle: ButtonStyle {
 
 // MARK: - Window chrome
 
-/// Gives the MenuBarExtra panel a translucent background with rounded corners.
-///
-/// Behind-window blur and the window shadow are composited by the window server, which ignores
-/// layer masks. So every blur view in the panel gets a rounded `maskImage`, the window itself is
-/// kept transparent, and the shadow is recomputed from the rounded shape after each layout.
+/// The panel's translucent background. Behind-window blur is composited by the window server,
+/// which ignores layer masks, so the rounded shape comes from `maskImage`; the borderless panel's
+/// shadow then follows that shape.
 private struct PopoverChrome: NSViewRepresentable {
     static let cornerRadius: CGFloat = 14
     static let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .circular)
 
     func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = ChromeView()
+        let view = NSVisualEffectView()
         view.material = .popover
         view.blendingMode = .behindWindow
         view.state = .active
@@ -410,7 +406,7 @@ private struct PopoverChrome: NSViewRepresentable {
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
 
     /// A stretchable rounded rect, the documented way to shape an NSVisualEffectView.
-    static let maskImage: NSImage = {
+    private static let maskImage: NSImage = {
         let edge = cornerRadius * 2 + 1
         let image = NSImage(size: NSSize(width: edge, height: edge), flipped: false) { rect in
             NSColor.black.setFill()
@@ -421,49 +417,4 @@ private struct PopoverChrome: NSViewRepresentable {
         image.resizingMode = .stretch
         return image
     }()
-
-    private final class ChromeView: NSVisualEffectView {
-        private var observers: [NSObjectProtocol] = []
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            observers.forEach(NotificationCenter.default.removeObserver)
-            observers = []
-            guard let window else { return }
-            // SwiftUI may restyle the panel each time it opens, so re-apply whenever it's shown or resized.
-            for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResizeNotification] {
-                observers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.applyToWindow() }
-                })
-            }
-            applyToWindow()
-        }
-
-        override func layout() {
-            super.layout()
-            applyToWindow()
-        }
-
-        private func applyToWindow() {
-            guard let window else { return }
-            window.isOpaque = false
-            window.backgroundColor = .clear
-            if let root = window.contentView?.superview ?? window.contentView {
-                Self.roundBlurViews(in: root)
-            }
-            // Recompute after this pass has drawn, so the shadow follows the rounded alpha.
-            DispatchQueue.main.async { [weak window] in window?.invalidateShadow() }
-        }
-
-        private static func roundBlurViews(in view: NSView) {
-            if let blur = view as? NSVisualEffectView, blur.maskImage !== PopoverChrome.maskImage {
-                blur.maskImage = PopoverChrome.maskImage
-            }
-            view.subviews.forEach(roundBlurViews)
-        }
-
-        deinit {
-            MainActor.assumeIsolated { observers.forEach(NotificationCenter.default.removeObserver) }
-        }
-    }
 }
