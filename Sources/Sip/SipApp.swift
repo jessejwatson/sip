@@ -117,6 +117,8 @@ final class AppModel {
 
     private func makeWindow(title: String, content: some View) -> NSWindow {
         let host = NSHostingController(rootView: content.environment(self).environment(store))
+        // Size the window to the SwiftUI content, and follow it if the content changes size.
+        host.sizingOptions = .preferredContentSize
         let window = NSWindow(contentViewController: host)
         window.title = title
         window.styleMask = [.titled, .closable]

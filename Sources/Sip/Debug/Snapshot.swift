@@ -19,9 +19,12 @@ enum Snapshot {
             }
         }
         let model = Scenario.empty.makeModel()
+        let settingsModel = Scenario.onTrack.makeModel()
         for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             render(OnboardingView().environment(model).environment(model.store), appearance: appearance,
                    to: directory.appendingPathComponent("onboarding-\(suffix).png"))
+            render(SettingsView().environment(settingsModel).environment(settingsModel.store), appearance: appearance,
+                   to: directory.appendingPathComponent("settings-\(suffix).png"))
         }
     }
 
