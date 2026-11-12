@@ -49,6 +49,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .tint(.water)
         .frame(width: 460)
         .frame(minHeight: 560)
         .onAppear { launchAtLogin = LoginItem.isEnabled }
@@ -81,26 +82,41 @@ struct WorkHoursEditor: View {
     let calendar = Calendar.current
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 6) {
                 ForEach(Weekday.displayOrder, id: \.self) { day in
-                    Toggle(day.shortName, isOn: Binding(
+                    DayChip(day: day, isOn: Binding(
                         get: { settings.workDays.contains(day) },
                         set: { on in
                             if on { settings.workDays.insert(day) } else { settings.workDays.remove(day) }
                         }
                     ))
-                    .toggleStyle(.button)
                 }
             }
-            DatePicker("Start", selection: timeBinding(\.startTime), displayedComponents: .hourAndMinute)
-            DatePicker("Finish", selection: timeBinding(\.endTime), displayedComponents: .hourAndMinute)
+            HStack(spacing: 8) {
+                DatePicker("From", selection: timeBinding(\.startTime), displayedComponents: .hourAndMinute)
+                    .fixedSize()
+                DatePicker("to", selection: timeBinding(\.endTime), displayedComponents: .hourAndMinute)
+                    .fixedSize()
+                Spacer()
+                if settings.hasValidHours {
+                    Text(hoursSummary)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
             if !settings.hasValidHours {
-                Label("Finish time must be after start time.", systemImage: "exclamationmark.triangle")
+                Label("Finish time must be after start time.", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
         }
+    }
+
+    private var hoursSummary: String {
+        let hours = Double(settings.workMinutes) / 60
+        return "\(hours.formatted(.number.precision(.fractionLength(0...1)))) h a day"
     }
 
     private func timeBinding(_ keyPath: WritableKeyPath<UserSettings, TimeOfDay>) -> Binding<Date> {
@@ -108,6 +124,28 @@ struct WorkHoursEditor: View {
             get: { settings[keyPath: keyPath].date(on: Date(), calendar: calendar) },
             set: { settings[keyPath: keyPath] = TimeOfDay($0, calendar: calendar) }
         )
+    }
+}
+
+private struct DayChip: View {
+    let day: Weekday
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Button { isOn.toggle() } label: {
+            Text(day.shortName)
+                .font(.callout.weight(.medium))
+                .foregroundStyle(isOn ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+                .frame(width: 44, height: 30)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(isOn ? AnyShapeStyle(Color.water.gradient) : AnyShapeStyle(.quaternary))
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .animation(.snappy(duration: 0.15), value: isOn)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }
 
@@ -120,8 +158,10 @@ struct GoalEditor: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text("\(Volume.litres(settings.goalML)) L")
-                    .font(.title2.weight(.semibold))
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .monospacedDigit()
+                    .contentTransition(.numericText(value: Double(settings.goalML)))
+                    .animation(.snappy, value: settings.goalML)
                 if let vessel = settings.vessels.first, vessel.amountML > 0 {
                     Text("≈ \(Self.vesselCount(goal: settings.goalML, vessel: vessel))")
                         .foregroundStyle(.secondary)
