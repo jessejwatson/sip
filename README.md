@@ -16,7 +16,14 @@ swift test                              # unit tests (pacing, reminders, store)
 ./scripts/build.sh && open build/Sip.app
 ```
 
-`build.sh` produces a universal, ad-hoc signed `build/Sip.app`. Sip runs from the menu bar only and has no Dock icon. To quit it, open the drop icon and choose **Quit Sip**.
+`build.sh` produces a universal, ad-hoc signed `build/Sip.app`. Sip runs from the menu bar only and has no Dock icon. To quit it, open the drop icon and choose **Quit**.
+
+To review UI changes without clicking through the app, render the popover and onboarding window to PNGs in light and dark mode. This is available in debug builds only and uses throwaway data:
+
+```bash
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swift build
+SIP_SNAPSHOT_DIR=/tmp/sip-snapshots .build/debug/Sip
+```
 
 To see onboarding again, use **Settings → Reset all data**, or run:
 

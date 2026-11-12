@@ -27,7 +27,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor let model = AppModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        MainActor.assumeIsolated { model.start() }
+        MainActor.assumeIsolated {
+            #if DEBUG
+            if let dir = ProcessInfo.processInfo.environment["SIP_SNAPSHOT_DIR"] {
+                Snapshot.run(to: URL(fileURLWithPath: dir))
+                exit(0)
+            }
+            #endif
+            model.start()
+        }
     }
 }
 
