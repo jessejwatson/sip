@@ -47,12 +47,27 @@ After you unlock or wake the Mac, the first possible reminder comes about 10 min
 ## Release
 
 ```bash
+./scripts/release.sh
+```
+
+This builds `build/Sip-<version>.zip` and writes its version and `sha256` into `Casks/sip.rb`. Then:
+
+1. Create a GitHub release tagged `v<version>` on `jessejwatson/sip` and attach the zip. The cask downloads it from there, so upload this exact file; a rebuilt zip has a different checksum.
+2. Copy `Casks/sip.rb` into the `Casks/` folder of your tap repo (a repo named `homebrew-<something>`) and push it.
+
+Users install it with the tap's full name, because Homebrew's own catalogue resolves `sip` to a different app:
+
+```bash
+brew install --cask jessejwatson/<tap>/sip
+```
+
+Releases are ad-hoc signed and not notarised for now. The cask clears the quarantine flag after installing so Gatekeeper doesn't block the app. Once there's a Developer ID, set these to sign with the hardened runtime and notarise, then remove the cask's `postflight` block:
+
+```bash
 export SIP_SIGN_ID="Developer ID Application: … (TEAMID)"
 export SIP_NOTARY_PROFILE="sip-notary"   # from `xcrun notarytool store-credentials`
 ./scripts/release.sh
 ```
-
-This signs the app with the hardened runtime, notarises it, staples the ticket and zips the result. It then prints the `version` and `sha256` to paste into the cask. `Casks/sip.rb` is only a template; the real cask lives in the tap repo. Updates are delivered with `brew upgrade`.
 
 To bump the version, edit `VERSION`. To regenerate the placeholder icon, run `swift scripts/make-icon.swift`.
 
