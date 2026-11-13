@@ -13,15 +13,14 @@ cask "sip" do
     strategy :github_latest
   end
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "Sip.app"
 
   # Sip isn't notarised yet, so Gatekeeper would refuse to open it. Clear the quarantine flag the
   # download picked up. Remove this once releases are signed with a Developer ID and notarised.
-  postflight do
-    system_command "/usr/bin/xattr",
-                   args: ["-dr", "com.apple.quarantine", "#{appdir}/Sip.app"]
+  postflight_steps do
+    run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{appdir}}/Sip.app"], must_succeed: false
   end
 
   uninstall quit: "com.jessejwatson.sip"
