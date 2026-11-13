@@ -214,3 +214,33 @@ struct ReminderEngineTests {
         #expect(sent.count == 0)
     }
 }
+
+@Suite("Vessel order")
+struct VesselOrderTests {
+    private func settings() -> UserSettings {
+        var s = UserSettings()
+        s.vessels = ["A", "B", "C"].map { Vessel(name: $0, amountML: 250) }
+        return s
+    }
+
+    private func names(_ s: UserSettings) -> [String] { s.vessels.map(\.name) }
+
+    @Test func dragDownTakesTargetsPlace() {
+        var s = settings()
+        s.moveVessel(s.vessels[0].id, to: s.vessels[2].id)
+        #expect(names(s) == ["B", "C", "A"])
+    }
+
+    @Test func dragUpTakesTargetsPlace() {
+        var s = settings()
+        s.moveVessel(s.vessels[2].id, to: s.vessels[0].id)
+        #expect(names(s) == ["C", "A", "B"])
+    }
+
+    @Test func dropOnItselfOrUnknownDoesNothing() {
+        var s = settings()
+        s.moveVessel(s.vessels[1].id, to: s.vessels[1].id)
+        s.moveVessel(UUID(), to: s.vessels[0].id)
+        #expect(names(s) == ["A", "B", "C"])
+    }
+}

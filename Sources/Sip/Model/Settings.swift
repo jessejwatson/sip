@@ -72,4 +72,12 @@ struct UserSettings: Codable, Sendable, Equatable {
     var workMinutes: Int { max(0, endTime.minutesSinceMidnight - startTime.minutesSinceMidnight) }
     var hasValidHours: Bool { endTime > startTime }
     var recommendedGoalML: Int { Pacing.recommendedGoal(workMinutes: workMinutes) }
+
+    /// Puts a vessel where the target vessel is, shifting the others along.
+    mutating func moveVessel(_ id: Vessel.ID, to targetID: Vessel.ID) {
+        guard id != targetID,
+              let from = vessels.firstIndex(where: { $0.id == id }),
+              let to = vessels.firstIndex(where: { $0.id == targetID }) else { return }
+        vessels.move(fromOffsets: [from], toOffset: to > from ? to + 1 : to)
+    }
 }

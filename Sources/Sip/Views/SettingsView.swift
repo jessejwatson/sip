@@ -63,8 +63,11 @@ struct SettingsView: View {
 
             Section {
                 ForEach($store.settings.vessels) { $vessel in
-                    VesselRow(vessel: $vessel, canRemove: store.settings.vessels.count > 1) {
+                    VesselRow(vessel: $vessel, canRemove: store.settings.vessels.count > 1,
+                              canReorder: store.settings.vessels.count > 1) {
                         store.settings.vessels.removeAll { $0.id == vessel.id }
+                    } move: { draggedID in
+                        withAnimation(.snappy) { store.settings.moveVessel(draggedID, to: vessel.id) }
                     }
                 }
                 Button("Add a bottle or cup", systemImage: "plus") {
@@ -74,7 +77,7 @@ struct SettingsView: View {
             } header: {
                 Text("Bottles and cups")
             } footer: {
-                FooterText("The first one is used by the “Log” button on reminders.")
+                FooterText("Drag to reorder. The first one is used by the “Log” button on reminders.")
             }
 
             Section {
@@ -188,10 +191,32 @@ private struct NotificationsRow: View {
 private struct VesselRow: View {
     @Binding var vessel: Vessel
     let canRemove: Bool
+    let canReorder: Bool
     let remove: () -> Void
+    /// Called with the ID of a vessel dropped onto this row.
+    let move: (UUID) -> Void
+
+    @State private var isDropTarget = false
 
     var body: some View {
         HStack(spacing: 8) {
+            Image(systemName: "line.3.horizontal")
+                .foregroundStyle(.tertiary)
+                .frame(width: 14)
+                .contentShape(Rectangle())
+                .opacity(canReorder ? 1 : 0)
+                .draggable(vessel.id.uuidString) {
+                    Label(vessel.name, systemImage: VesselSymbol.name(for: vessel.amountML))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(.regularMaterial, in: Capsule())
+                }
+                .onHover { inside in
+                    guard canReorder else { return }
+                    if inside { NSCursor.openHand.push() } else { NSCursor.pop() }
+                }
+                .help("Drag to reorder")
+                .accessibilityHidden(true)
             Image(systemName: VesselSymbol.name(for: vessel.amountML))
                 .foregroundStyle(.tint)
                 .frame(width: 20)
@@ -211,6 +236,17 @@ private struct VesselRow: View {
             .disabled(!canRemove)
             .help(canRemove ? "Remove" : "You need at least one bottle or cup")
         }
+        .contentShape(Rectangle())
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(.tint.opacity(isDropTarget ? 0.15 : 0))
+                .padding(-4)
+        )
+        .dropDestination(for: String.self) { items, _ in
+            guard let id = items.first.flatMap(UUID.init(uuidString:)) else { return false }
+            move(id)
+            return true
+        } isTargeted: { isDropTarget = $0 }
     }
 }
 
