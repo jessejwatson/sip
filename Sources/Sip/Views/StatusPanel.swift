@@ -51,6 +51,7 @@ final class StatusItemController: NSObject {
     func show() {
         guard let button = statusItem.button, let buttonWindow = button.window else { return }
         model.store.refreshDay()
+        Task { await model.notifications.refreshPermission() }
         let buttonFrame = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
         anchor = NSPoint(x: buttonFrame.midX, y: buttonFrame.minY - Self.gap)
         reposition()

@@ -7,7 +7,14 @@ struct MenuContent: View {
     var body: some View {
         VStack(spacing: 12) {
             if !store.settings.hasOnboarded {
-                SetupBanner { model.showOnboarding() }
+                Banner(symbol: "sparkles", title: "Finish setting up Sip", fill: .water) {
+                    model.showOnboarding()
+                }
+            } else if model.notifications.permission == .off {
+                Banner(symbol: "bell.slash.fill", title: "Notifications are off",
+                       subtitle: "Turn them on to get reminders.", fill: .orange) {
+                    model.notifications.turnOn()
+                }
             }
             TodayHeader()
             QuickAddGrid()
@@ -172,22 +179,34 @@ private struct StatusLabelStyle: LabelStyle {
     }
 }
 
-private struct SetupBanner: View {
+private struct Banner: View {
+    let symbol: String
+    let title: String
+    var subtitle: String?
+    let fill: Color
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack {
-                Image(systemName: "sparkles")
-                Text("Finish setting up Sip")
-                    .fontWeight(.medium)
+            HStack(spacing: 10) {
+                Image(systemName: symbol)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .fontWeight(.medium)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.caption)
+                            .opacity(0.85)
+                    }
+                }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption.weight(.semibold))
             }
             .padding(10)
             .foregroundStyle(.white)
-            .background(Color.water.gradient, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(fill.gradient, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

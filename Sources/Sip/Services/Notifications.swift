@@ -1,8 +1,10 @@
-import Foundation
+import AppKit
+import Observation
 import UserNotifications
 
-/// Wraps UNUserNotificationCenter: the reminder category, its actions, and delivery.
+/// Wraps UNUserNotificationCenter: permission, the reminder category, its actions, and delivery.
 @MainActor
+@Observable
 final class Notifications: NSObject, UNUserNotificationCenterDelegate {
     static let categoryID = "SIP_REMINDER"
     static let logActionID = "LOG_FIRST_VESSEL"
@@ -11,7 +13,17 @@ final class Notifications: NSObject, UNUserNotificationCenterDelegate {
 
     enum Action: Sendable { case logFirstVessel, snooze }
 
-    var onAction: ((Action) -> Void)?
+    enum Permission: Sendable {
+        /// Not checked yet, or running outside an app bundle.
+        case unknown
+        case notDetermined
+        case allowed
+        /// Denied, or allowed with the alert style set to None. Either way reminders arrive silently.
+        case off
+    }
+
+    @ObservationIgnored var onAction: ((Action) -> Void)?
+    var permission: Permission = .unknown
 
     /// UNUserNotificationCenter crashes outside a bundled app (e.g. `swift run`), so do nothing there.
     private var center: UNUserNotificationCenter? {
@@ -37,7 +49,33 @@ final class Notifications: NSObject, UNUserNotificationCenterDelegate {
 
     func requestAuthorization() async -> Bool {
         guard let center else { return false }
-        return (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+        let granted = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+        await refreshPermission()
+        return granted
+    }
+
+    func refreshPermission() async {
+        guard let center else { return }
+        let settings = await center.notificationSettings()
+        permission = switch settings.authorizationStatus {
+        case .notDetermined: .notDetermined
+        case .authorized, .provisional: settings.alertStyle == .none ? .off : .allowed
+        default: .off
+        }
+    }
+
+    /// Asks for permission if macOS hasn't asked yet; otherwise opens Sip's page in System Settings,
+    /// since apps can't ask again after being turned down.
+    func turnOn() {
+        switch permission {
+        case .notDetermined:
+            Task { _ = await requestAuthorization() }
+        default:
+            let id = Bundle.main.bundleIdentifier ?? ""
+            if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)") {
+                NSWorkspace.shared.open(url)
+            }
+        }
     }
 
     func sendReminder(totalML: Int, goalML: Int) {

@@ -78,6 +78,7 @@ struct SettingsView: View {
             }
 
             Section {
+                NotificationsRow(notifications: model.notifications)
                 Picker("Minimum time between reminders", selection: $store.settings.reminderIntervalMinutes) {
                     ForEach([20, 30, 45, 60, 90, 120], id: \.self) { Text("\($0) min").tag($0) }
                 }
@@ -157,6 +158,30 @@ private struct FooterText: View {
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct NotificationsRow: View {
+    let notifications: Notifications
+
+    var body: some View {
+        LabeledContent("Notifications") {
+            switch notifications.permission {
+            case .allowed:
+                Label("On", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            case .notDetermined:
+                Button("Allow…") { notifications.turnOn() }
+            case .off:
+                HStack(spacing: 8) {
+                    Label("Off", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Button("Open System Settings…") { notifications.turnOn() }
+                }
+            case .unknown:
+                EmptyView()
+            }
+        }
     }
 }
 

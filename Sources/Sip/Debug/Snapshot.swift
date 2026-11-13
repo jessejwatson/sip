@@ -20,6 +20,7 @@ enum Snapshot {
         }
         let model = Scenario.empty.makeModel()
         let settingsModel = Scenario.onTrack.makeModel()
+        settingsModel.notifications.permission = .off
         for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             render(OnboardingView().environment(model).environment(model.store), appearance: appearance,
                    to: directory.appendingPathComponent("onboarding-\(suffix).png"))
@@ -61,7 +62,10 @@ enum Snapshot {
             if today > 0 { store.log(today) }
             if self == .leave { store.setExcluded(true, on: store.today) }
             store.refreshDay()
-            return AppModel(store: store)
+            let model = AppModel(store: store)
+            // Show the warning states: notifications turned off.
+            if self == .behind { model.notifications.permission = .off }
+            return model
         }
 
         private static var lastMonday: Date {

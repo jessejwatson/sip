@@ -80,6 +80,14 @@ final class AppModel {
         engine.start()
         statusItem = StatusItemController(model: self)
 
+        Task {
+            await notifications.refreshPermission()
+            // Covers anyone who finished setup without being asked, e.g. on a build that couldn't ask.
+            if store.settings.hasOnboarded, notifications.permission == .notDetermined {
+                _ = await notifications.requestAuthorization()
+            }
+        }
+
         if !store.settings.hasOnboarded { showOnboarding() }
     }
 
@@ -129,6 +137,7 @@ final class AppModel {
 
     private func present(_ window: NSWindow?) {
         statusItem?.close()
+        Task { await notifications.refreshPermission() }
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
     }
