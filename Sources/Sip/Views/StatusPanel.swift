@@ -83,9 +83,13 @@ final class StatusItemController: NSObject {
 
     private func installMonitors() {
         removeMonitors()
-        // Clicks in other apps (and on the desktop) close the panel, like a menu.
+        // Clicks in other apps (and on the desktop) close the panel, like a menu. The menu bar can report
+        // a click on Sip's own icon here too; leave that one to `toggle`, or the panel closes and reopens.
         if let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
-            MainActor.assumeIsolated { self?.close() }
+            MainActor.assumeIsolated {
+                guard let self, !self.isOverIcon(NSEvent.mouseLocation) else { return }
+                self.close()
+            }
         }) {
             monitors.append(global)
         }
@@ -100,6 +104,11 @@ final class StatusItemController: NSObject {
         }) {
             monitors.append(local)
         }
+    }
+
+    private func isOverIcon(_ point: NSPoint) -> Bool {
+        guard let button = statusItem.button, let window = button.window else { return false }
+        return window.convertToScreen(button.convert(button.bounds, to: nil)).contains(point)
     }
 
     private func removeMonitors() {

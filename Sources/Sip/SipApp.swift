@@ -93,6 +93,7 @@ final class AppModel {
 
     func log(_ amountML: Int) {
         store.log(amountML)
+        notifications.clearReminder()
     }
 
     func logFirstVessel() {
@@ -138,8 +139,11 @@ final class AppModel {
     private func present(_ window: NSWindow?) {
         statusItem?.close()
         Task { await notifications.refreshPermission() }
-        NSApp.activate()
+        // Sip has no Dock icon and its panel doesn't activate it, so the system can turn down a polite
+        // `activate()` and leave the window behind the frontmost app. Insist, then raise it regardless.
+        NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+        window?.orderFrontRegardless()
     }
 
     func resetAllData() {

@@ -90,6 +90,11 @@ final class Notifications: NSObject, UNUserNotificationCenterDelegate {
         center.add(request)
     }
 
+    /// Removes a reminder still sitting in Notification Centre, e.g. once the drink is logged from the menu.
+    func clearReminder() {
+        center?.removeDeliveredNotifications(withIdentifiers: [Self.reminderID])
+    }
+
     // MARK: UNUserNotificationCenterDelegate
 
     nonisolated func userNotificationCenter(

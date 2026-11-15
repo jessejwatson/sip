@@ -1,9 +1,12 @@
 import SwiftUI
 
-/// The last seven days, oldest first, one dot each.
+/// The last seven days, oldest first, one dot each. Clicking a day pins it so it can be marked as leave.
 struct WeekStrip: View {
     @Environment(Store.self) private var store
-    @State private var selected: Date?
+    @Binding var pinned: Date?
+    @State private var hovered: Date?
+
+    private var selected: Date? { hovered ?? pinned }
 
     private var days: [Date] {
         (0..<7).reversed().compactMap { store.calendar.date(byAdding: .day, value: -$0, to: store.today) }
@@ -26,16 +29,31 @@ struct WeekStrip: View {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .fill(.quaternary.opacity(selected == day ? 1 : isToday ? 0.6 : 0))
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(.tint, lineWidth: 1.5)
+                            .opacity(pinned == day ? 1 : 0)
+                    )
                     .contentShape(Rectangle())
                     .onHover { hovering in
-                        if hovering { selected = day } else if selected == day { selected = nil }
+                        if hovering { hovered = day } else if hovered == day { hovered = nil }
                     }
-                    .onTapGesture { selected = (selected == day) ? nil : day }
+                    .onTapGesture { pinned = (pinned == day || isToday) ? nil : day }
+                    .contextMenu {
+                        if store.isWorkDay(day) {
+                            Toggle("On Leave", isOn: Binding(
+                                get: { store.isExcluded(day) },
+                                set: { store.setExcluded($0, on: day) }
+                            ))
+                        }
+                    }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(summary(day))
+                    .accessibilityAddTraits(pinned == day ? .isSelected : [])
+                    .accessibilityAction { pinned = (pinned == day || isToday) ? nil : day }
                 }
             }
-            Text(selected.map(summary) ?? "Point at a day to see its total")
+            Text(selected.map(summary) ?? "Point at a day to see its total, click to select it")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()

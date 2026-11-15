@@ -309,6 +309,10 @@ enum VesselSymbol {
 
 private struct WeekCard: View {
     @Environment(Store.self) private var store
+    /// A past day picked in the strip; the leave toggle applies to it instead of today.
+    @State private var pinned: Date?
+
+    private var leaveDay: Date { pinned ?? store.today }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -320,20 +324,27 @@ private struct WeekCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            WeekStrip()
+            WeekStrip(pinned: $pinned)
             Divider()
             Toggle(isOn: Binding(
-                get: { store.isTodayExcluded },
-                set: { excluded in withAnimation(.snappy) { store.setExcluded(excluded, on: store.today) } }
+                get: { store.isExcluded(leaveDay) },
+                set: { excluded in withAnimation(.snappy) { store.setExcluded(excluded, on: leaveDay) } }
             )) {
-                Label("On leave today", systemImage: "beach.umbrella")
+                Label(leaveLabel, systemImage: "beach.umbrella")
                     .font(.callout)
             }
             .toggleStyle(.switch)
             .controlSize(.mini)
+            .disabled(pinned.map { !store.isWorkDay($0) } ?? false)
         }
+        .onChange(of: store.today) { pinned = nil }
         .padding(12)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var leaveLabel: String {
+        guard let pinned else { return "On leave today" }
+        return "On leave \(pinned.formatted(.dateTime.weekday(.wide)))"
     }
 
     /// "3 of 4 work days" — met days among the last seven, not counting today unless it's done.
