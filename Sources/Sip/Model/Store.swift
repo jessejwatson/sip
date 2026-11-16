@@ -135,6 +135,20 @@ final class Store {
         saveHistory()
     }
 
+    /// How many drinks of exactly `amountML` were logged today.
+    func todayCount(of amountML: Int) -> Int {
+        todayEntries.filter { $0.amountML == amountML }.count
+    }
+
+    /// Removes today's most recent drink of exactly `amountML`.
+    func undoLast(of amountML: Int) {
+        refreshDay()
+        guard let last = todayEntries.filter({ $0.amountML == amountML })
+            .max(by: { $0.timestamp < $1.timestamp }) else { return }
+        history.entries.removeAll { $0.id == last.id }
+        saveHistory()
+    }
+
     func setExcluded(_ excluded: Bool, on day: Date) {
         let k = key(for: day)
         if excluded { history.excludedDays.insert(k) } else { history.excludedDays.remove(k) }

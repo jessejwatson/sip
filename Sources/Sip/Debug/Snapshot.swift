@@ -52,14 +52,15 @@ enum Snapshot {
                 store.log(amount)
                 clock = calendar.date(byAdding: .day, value: -offset, to: clock)!
             }
-            let today: Int = switch self {
-            case .behind: 250
-            case .onTrack: 1000
-            case .met: 1500
-            case .empty: 0
-            case .leave: 500
+            // Today, logged as vessels so the tiles show their counts.
+            let today: [Int] = switch self {
+            case .behind: [250]
+            case .onTrack: [750, 250]
+            case .met: [750, 250, 250, 250]
+            case .empty: []
+            case .leave: [250, 250]
             }
-            if today > 0 { store.log(today) }
+            today.forEach(store.log)
             if self == .leave { store.setExcluded(true, on: store.today) }
             store.refreshDay()
             let model = AppModel(store: store)

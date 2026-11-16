@@ -36,6 +36,23 @@ struct StoreTests {
         #expect(store.todayEntries.count == 1)
     }
 
+    @Test func countAndUndoByAmount() {
+        let clock = TestClock(at(10))
+        let (store, _) = makeStore(clock: clock)
+        store.log(750)
+        clock.advance(minutes: 10)
+        store.log(250)
+        clock.advance(minutes: 10)
+        store.log(750)
+        #expect(store.todayCount(of: 750) == 2)
+        #expect(store.todayCount(of: 250) == 1)
+        store.undoLast(of: 750)
+        #expect(store.todayCount(of: 750) == 1)
+        #expect(store.todayTotal == 1000)
+        store.undoLast(of: 500)
+        #expect(store.todayTotal == 1000)
+    }
+
     @Test func rolloverAcrossMidnight() {
         let clock = TestClock(on(9, 23, 50))
         let (store, _) = makeStore(clock: clock)

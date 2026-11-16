@@ -235,6 +235,18 @@ private struct QuickAddGrid: View {
                                   title: vessel.name, detail: Volume.ml(vessel.amountML))
                     }
                     .help("Log \(Volume.ml(vessel.amountML))")
+                    .overlay(alignment: .topTrailing) {
+                        let count = store.todayCount(of: vessel.amountML)
+                        if count > 0 {
+                            CountPill(count: count) {
+                                withAnimation(.snappy) { store.undoLast(of: vessel.amountML) }
+                            }
+                            .help("Remove one \(vessel.name)")
+                            .offset(x: -5, y: 5)
+                            .transition(.scale.combined(with: .opacity))
+                        }
+                    }
+                    .animation(.snappy, value: store.todayCount(of: vessel.amountML))
                 }
                 Button {
                     withAnimation(.snappy) { showingCustom.toggle() }
@@ -295,6 +307,37 @@ private struct TileLabel: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
         .padding(.horizontal, 6)
+    }
+}
+
+/// Today's count for a vessel; hovering swaps it for a minus that removes one.
+private struct CountPill: View {
+    let count: Int
+    let remove: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: remove) {
+            ZStack {
+                Text("\(count)")
+                    .font(.caption2.weight(.semibold))
+                    .monospacedDigit()
+                    .contentTransition(.numericText(value: Double(count)))
+                    .opacity(hovering ? 0 : 1)
+                Image(systemName: "minus")
+                    .font(.system(size: 9, weight: .bold))
+                    .opacity(hovering ? 1 : 0)
+            }
+            .foregroundStyle(.white)
+            .frame(minWidth: 18, minHeight: 18)
+            .padding(.horizontal, count > 9 && !hovering ? 3 : 0)
+            .background(Capsule().fill(Color.gray))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .accessibilityLabel("\(count) logged. Remove one")
     }
 }
 
