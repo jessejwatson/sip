@@ -17,11 +17,24 @@ struct History: Codable, Sendable, Equatable {
 
 /// Volume formatting shared by the menu, notifications and onboarding.
 enum Volume {
-    /// "1.2", "0.75", "2" — litres with one or two decimals as needed.
-    static func litres(_ ml: Int) -> String {
-        let litres = Double(ml) / 1000
-        return litres.formatted(.number.precision(.fractionLength(1...2)))
+    /// "1.2 L" or "41 oz", for totals and goals.
+    static func total(_ ml: Int, in unit: VolumeUnit) -> String {
+        "\(totalValue(ml, in: unit)) \(unit == .ml ? "L" : "oz")"
     }
 
-    static func ml(_ ml: Int) -> String { "\(ml) ml" }
+    /// "1.2", "0.75", "2" litres with one or two decimals as needed, or whole ounces.
+    static func totalValue(_ ml: Int, in unit: VolumeUnit) -> String {
+        switch unit {
+        case .ml: (Double(ml) / 1000).formatted(.number.precision(.fractionLength(1...2)))
+        case .oz: unit.value(ml).formatted(.number.precision(.fractionLength(0)))
+        }
+    }
+
+    /// "250 ml" or "16.9 oz", for single drinks.
+    static func amount(_ ml: Int, in unit: VolumeUnit) -> String {
+        switch unit {
+        case .ml: "\(ml) ml"
+        case .oz: "\(unit.value(ml).formatted(.number.precision(.fractionLength(0...1)))) oz"
+        }
+    }
 }

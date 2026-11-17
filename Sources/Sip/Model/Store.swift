@@ -117,6 +117,20 @@ final class Store {
     }
     var lastDrinkAt: Date? { history.entries.map(\.timestamp).max() }
 
+    func pace(at now: Date) -> Pace {
+        let total = todayTotal
+        let goal = todayGoal
+        if total >= goal, goal > 0 { return .goalMet }
+        if isTodayExcluded { return .onLeave }
+        if !isWorkDay(today) { return .dayOff }
+        if Pacing.minutesSinceMidnight(now, calendar: calendar) < Double(settings.startTime.minutesSinceMidnight) {
+            return .beforeStart(settings.startTime)
+        }
+        let expected = Pacing.expected(goalML: goal, settings: settings, now: now, calendar: calendar)
+        if Pacing.isBehind(expectedML: expected, actualML: total) { return .behind(byML: expected - total) }
+        return .onTrack(toGoML: goal - total)
+    }
+
     // MARK: Mutations
 
     func log(_ amountML: Int) {

@@ -45,9 +45,9 @@ struct MenuContent: View {
                 Button {
                     withAnimation(.snappy) { store.undoLast() }
                 } label: {
-                    Label("Undo \(Volume.ml(last.amountML))", systemImage: "arrow.uturn.backward")
+                    Label("Undo \(Volume.amount(last.amountML, in: store.settings.unit))", systemImage: "arrow.uturn.backward")
                 }
-                .help("Remove the \(Volume.ml(last.amountML)) logged at \(last.timestamp.formatted(date: .omitted, time: .shortened))")
+                .help("Remove the \(Volume.amount(last.amountML, in: store.settings.unit)) logged at \(last.timestamp.formatted(date: .omitted, time: .shortened))")
                 .transition(.opacity)
             }
 
@@ -82,10 +82,10 @@ private struct TodayHeader: View {
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(Volume.litres(store.todayTotal)) L")
+                        Text(Volume.total(store.todayTotal, in: store.settings.unit))
                             .font(.system(size: 28, weight: .semibold, design: .rounded))
                             .contentTransition(.numericText(value: Double(store.todayTotal)))
-                        Text("of \(Volume.litres(store.todayGoal)) L")
+                        Text("of \(Volume.total(store.todayGoal, in: store.settings.unit))")
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     }
@@ -141,29 +141,24 @@ private struct PaceStatus {
 
     @MainActor
     init(store: Store, now: Date) {
-        let settings = store.settings
-        let total = store.todayTotal
-        let goal = store.todayGoal
-        let nowMinutes = Pacing.minutesSinceMidnight(now, calendar: store.calendar)
+        let unit = store.settings.unit
 
-        if total >= goal, goal > 0 {
+        switch store.pace(at: now) {
+        case .goalMet:
             (message, symbol, tint) = ("Goal reached. Nice work!", "checkmark.circle.fill", .green)
-        } else if store.isTodayExcluded {
+        case .onLeave:
             (message, symbol, tint) = ("On leave: no reminders", "moon.zzz.fill", .secondary)
-        } else if !store.isWorkDay(store.today) {
+        case .dayOff:
             (message, symbol, tint) = ("Day off: no reminders", "moon.zzz.fill", .secondary)
-        } else if nowMinutes < Double(settings.startTime.minutesSinceMidnight) {
-            let start = settings.startTime.date(on: now, calendar: store.calendar)
+        case .beforeStart(let startTime):
+            let start = startTime.date(on: now, calendar: store.calendar)
             (message, symbol, tint) = ("Your day starts at \(start.formatted(date: .omitted, time: .shortened))",
                                        "sunrise.fill", .secondary)
-        } else {
-            let expected = Pacing.expected(goalML: goal, settings: settings, now: now, calendar: store.calendar)
-            if Pacing.isBehind(expectedML: expected, actualML: total) {
-                (message, symbol, tint) = ("\(Volume.ml(Self.round50(expected - total))) behind pace",
-                                           "exclamationmark.circle.fill", .orange)
-            } else {
-                (message, symbol, tint) = ("On track · \(Volume.ml(goal - total)) to go", "hand.thumbsup.fill", .water)
-            }
+        case .behind(let ml):
+            (message, symbol, tint) = ("\(Volume.amount(Self.round50(ml), in: unit)) behind pace",
+                                       "exclamationmark.circle.fill", .orange)
+        case .onTrack(let ml):
+            (message, symbol, tint) = ("On track · \(Volume.amount(ml, in: unit)) to go", "hand.thumbsup.fill", .water)
         }
     }
 
@@ -219,7 +214,7 @@ private struct QuickAddGrid: View {
     @Environment(Store.self) private var store
 
     @State private var showingCustom = false
-    @State private var customAmount: Int?
+    @State private var customAmount: Double?
     @FocusState private var customFocused: Bool
 
     private let columns = [GridItem(.adaptive(minimum: 88), spacing: 8)]
@@ -232,9 +227,9 @@ private struct QuickAddGrid: View {
                         model.log(vessel.amountML)
                     } label: {
                         TileLabel(symbol: VesselSymbol.name(for: vessel.amountML),
-                                  title: vessel.name, detail: Volume.ml(vessel.amountML))
+                                  title: vessel.name, detail: Volume.amount(vessel.amountML, in: store.settings.unit))
                     }
-                    .help("Log \(Volume.ml(vessel.amountML))")
+                    .help("Log \(Volume.amount(vessel.amountML, in: store.settings.unit))")
                     .overlay(alignment: .topTrailing) {
                         let count = store.todayCount(of: vessel.amountML)
                         if count > 0 {
@@ -262,12 +257,12 @@ private struct QuickAddGrid: View {
 
             if showingCustom {
                 HStack(spacing: 8) {
-                    TextField("Amount", value: $customAmount, format: .number)
+                    TextField("Amount", value: $customAmount, format: .number.precision(.fractionLength(0...1)))
                         .textFieldStyle(.roundedBorder)
                         .focused($customFocused)
                         .onSubmit(addCustom)
                         .onExitCommand { withAnimation(.snappy) { showingCustom = false } }
-                    Text("ml").foregroundStyle(.secondary)
+                    Text(store.settings.unit.rawValue).foregroundStyle(.secondary)
                     Button("Add", action: addCustom)
                         .buttonStyle(.borderedProminent)
                         .disabled((customAmount ?? 0) <= 0)
@@ -279,7 +274,7 @@ private struct QuickAddGrid: View {
 
     private func addCustom() {
         guard let amount = customAmount, amount > 0 else { return }
-        model.log(min(amount, 5000))
+        model.log(min(store.settings.unit.millilitres(amount), 5000))
         withAnimation(.snappy) { showingCustom = false }
     }
 }

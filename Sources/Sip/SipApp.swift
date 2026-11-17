@@ -46,7 +46,7 @@ final class AppModel {
         engine = ReminderEngine(
             store: store,
             isPresent: { [presence] in presence.isPresent },
-            send: { [notifications] in notifications.sendReminder(totalML: $0.totalML, goalML: $0.goalML) }
+            send: { [notifications] in notifications.sendReminder($0) }
         )
     }
 

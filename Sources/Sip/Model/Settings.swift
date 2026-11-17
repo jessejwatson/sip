@@ -53,6 +53,29 @@ struct TimeOfDay: Codable, Sendable, Hashable, Comparable {
     }
 }
 
+/// How volumes are shown and entered. Amounts are always stored in millilitres.
+enum VolumeUnit: String, Codable, CaseIterable, Sendable {
+    case ml, oz
+
+    static let mlPerOz = 29.5735
+
+    /// Fluid ounces where the region uses US customary units, millilitres everywhere else.
+    static func automatic(for locale: Locale = .current) -> VolumeUnit {
+        locale.measurementSystem == .us ? .oz : .ml
+    }
+
+    /// Step for goal steppers and sliders.
+    var goalStep: Double { self == .ml ? 50 : 1 }
+    var goalRange: ClosedRange<Double> { self == .ml ? 250...5000 : 8...170 }
+    var goalSliderRange: ClosedRange<Double> { self == .ml ? 250...4000 : 8...135 }
+
+    /// A millilitre amount in this unit.
+    func value(_ ml: Int) -> Double { self == .ml ? Double(ml) : Double(ml) / Self.mlPerOz }
+
+    /// An amount in this unit, in whole millilitres.
+    func millilitres(_ value: Double) -> Int { Int((self == .ml ? value : value * Self.mlPerOz).rounded()) }
+}
+
 struct Vessel: Codable, Sendable, Hashable, Identifiable {
     var id = UUID()
     var name: String
@@ -68,10 +91,13 @@ struct UserSettings: Codable, Sendable, Equatable {
     var vessels: [Vessel] = [Vessel(name: "Bottle", amountML: 750)]
     var reminderIntervalMinutes: Int = 45
     var hasOnboarded = false
+    /// nil follows the region. Optional so settings saved before this existed still decode.
+    var volumeUnit: VolumeUnit?
 
     var workMinutes: Int { max(0, endTime.minutesSinceMidnight - startTime.minutesSinceMidnight) }
     var hasValidHours: Bool { endTime > startTime }
     var recommendedGoalML: Int { Pacing.recommendedGoal(workMinutes: workMinutes) }
+    var unit: VolumeUnit { volumeUnit ?? .automatic() }
 
     /// Puts a vessel where the target vessel is, shifting the others along.
     mutating func moveVessel(_ id: Vessel.ID, to targetID: Vessel.ID) {

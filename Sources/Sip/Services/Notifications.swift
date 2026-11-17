@@ -78,11 +78,11 @@ final class Notifications: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    func sendReminder(totalML: Int, goalML: Int) {
+    func sendReminder(_ reminder: ReminderEngine.Reminder) {
         guard let center else { return }
         let content = UNMutableNotificationContent()
         content.title = "Time for a drink"
-        content.body = "You're at \(Volume.litres(totalML)) of \(Volume.litres(goalML)) L."
+        content.body = "You're at \(Volume.totalValue(reminder.totalML, in: reminder.unit)) of \(Volume.total(reminder.goalML, in: reminder.unit))."
         content.sound = .default
         content.categoryIdentifier = Self.categoryID
         // Reusing the identifier replaces any earlier reminder rather than stacking them.

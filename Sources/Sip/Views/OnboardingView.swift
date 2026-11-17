@@ -11,6 +11,8 @@ struct OnboardingView: View {
     @State private var launchAtLogin = true
 
     private static let presets = [250, 500, 600, 750, 1000]
+    /// 8, 12, 16.9, 24 and 32 oz.
+    private static let ozPresets = [237, 355, 500, 710, 946]
     private static let stepCount = 3
 
     var body: some View {
@@ -139,14 +141,14 @@ struct OnboardingView: View {
     private var vesselStep: some View {
         VStack(spacing: 16) {
             HStack(spacing: 8) {
-                ForEach(Self.presets, id: \.self) { amount in
+                ForEach(draft.unit == .oz ? Self.ozPresets : Self.presets, id: \.self) { amount in
                     let selected = firstVesselAmount.wrappedValue == amount
                     Button { firstVesselAmount.wrappedValue = amount } label: {
                         VStack(spacing: 6) {
                             Image(systemName: VesselSymbol.name(for: amount))
                                 .font(.system(size: 18, weight: .medium))
                                 .frame(height: 22)
-                            Text(Volume.ml(amount))
+                            Text(Volume.amount(amount, in: draft.unit))
                                 .font(.callout.weight(.medium))
                                 .monospacedDigit()
                         }
@@ -168,11 +170,12 @@ struct OnboardingView: View {
                 Text("Or enter a size")
                     .foregroundStyle(.secondary)
                 Spacer()
-                TextField("Size", value: firstVesselAmount, format: .number)
+                TextField("Size", value: firstVesselAmount.volume(in: draft.unit),
+                          format: .number.precision(.fractionLength(0...1)))
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)
                     .frame(width: 80)
-                Text("ml")
+                Text(draft.unit.rawValue)
             }
         }
     }

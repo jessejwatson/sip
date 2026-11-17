@@ -44,6 +44,16 @@ enum Pacing {
     }
 }
 
+// MARK: - Pace right now
+
+/// Where today stands, shown in the popover header and on the menu bar icon.
+enum Pace: Equatable, Sendable {
+    case goalMet, onLeave, dayOff
+    case beforeStart(TimeOfDay)
+    case behind(byML: Int)
+    case onTrack(toGoML: Int)
+}
+
 // MARK: - Reminder decisions
 
 struct ReminderContext: Sendable {

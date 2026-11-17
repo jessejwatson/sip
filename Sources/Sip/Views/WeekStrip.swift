@@ -70,10 +70,11 @@ struct WeekStrip: View {
     private func summary(_ day: Date) -> String {
         let label = day == store.today ? "Today" : day.formatted(.dateTime.weekday(.wide).day().month(.abbreviated))
         let total = store.total(on: day)
-        let extra = total > 0 ? " · \(Volume.litres(total)) L" : ""
+        let unit = store.settings.unit
+        let extra = total > 0 ? " · \(Volume.total(total, in: unit))" : ""
         if store.isExcluded(day) { return "\(label): on leave\(extra)" }
         if !store.isWorkDay(day) { return "\(label): not a work day\(extra)" }
-        return "\(label): \(Volume.litres(total)) of \(Volume.litres(store.goal(on: day))) L"
+        return "\(label): \(Volume.totalValue(total, in: unit)) of \(Volume.total(store.goal(on: day), in: unit))"
     }
 }
 

@@ -17,6 +17,8 @@ final class StatusItemController: NSObject {
     private let panel: StatusPanel
     private var monitors: [Any] = []
     private var resizeObserver: NSObjectProtocol?
+    /// Pace changes with the clock as well as the store, so the icon is also redrawn every minute.
+    private var iconTimer: Timer?
     /// Top-centre point of the panel, just below the status item.
     private var anchor = NSPoint.zero
 
@@ -42,6 +44,9 @@ final class StatusItemController: NSObject {
             MainActor.assumeIsolated { self?.reposition() }
         }
         updateIcon()
+        iconTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.applyIcon() }
+        }
     }
 
     @objc private func toggle() {
@@ -120,12 +125,17 @@ final class StatusItemController: NSObject {
 
     private func updateIcon() {
         withObservationTracking {
-            let store = model.store
-            statusItem.button?.image = MenuBarIcon.image(for: store)
-            statusItem.button?.setAccessibilityLabel(MenuBarIcon.accessibilityLabel(for: store))
+            applyIcon()
         } onChange: { [weak self] in
             Task { @MainActor in self?.updateIcon() }
         }
+    }
+
+    private func applyIcon() {
+        let store = model.store
+        let isBehind = MenuBarIcon.isBehind(store)
+        statusItem.button?.image = MenuBarIcon.image(for: store, isBehind: isBehind)
+        statusItem.button?.setAccessibilityLabel(MenuBarIcon.accessibilityLabel(for: store, isBehind: isBehind))
     }
 }
 
@@ -153,13 +163,20 @@ final class StatusPanel: NSPanel {
 
 enum MenuBarIcon {
     @MainActor
-    static func image(for store: Store) -> NSImage {
-        image(symbol: symbolName(for: store), dimmed: store.isTodayOff)
+    static func isBehind(_ store: Store) -> Bool {
+        if case .behind = store.pace(at: store.now()) { return true }
+        return false
     }
 
     @MainActor
-    static func accessibilityLabel(for store: Store) -> String {
-        "Sip, \(Int((store.todayFraction * 100).rounded()))% of today's goal"
+    static func image(for store: Store, isBehind: Bool) -> NSImage {
+        let base = image(symbol: symbolName(for: store), dimmed: store.isTodayOff)
+        return isBehind ? badged(base) : base
+    }
+
+    @MainActor
+    static func accessibilityLabel(for store: Store, isBehind: Bool) -> String {
+        "Sip, \(Int((store.todayFraction * 100).rounded()))% of today's goal\(isBehind ? ", behind pace" : "")"
     }
 
     @MainActor
@@ -186,5 +203,24 @@ enum MenuBarIcon {
         }
         dimmedImage.isTemplate = true
         return dimmedImage
+    }
+
+    /// Adds a small "!" badge at the bottom right, with a gap cut around it so it reads against the drop.
+    private static func badged(_ base: NSImage) -> NSImage {
+        guard let badge = NSImage(systemSymbolName: "exclamationmark.circle.fill", accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 6.5, weight: .heavy)) else { return base }
+        let size = NSSize(width: base.size.width + badge.size.width * 0.6, height: base.size.height)
+        let image = NSImage(size: size, flipped: false) { rect in
+            base.draw(in: NSRect(origin: .zero, size: base.size))
+            let badgeRect = NSRect(x: rect.maxX - badge.size.width, y: rect.minY,
+                                   width: badge.size.width, height: badge.size.height)
+            NSGraphicsContext.current?.compositingOperation = .destinationOut
+            NSBezierPath(ovalIn: badgeRect.insetBy(dx: -1.25, dy: -1.25)).fill()
+            NSGraphicsContext.current?.compositingOperation = .sourceOver
+            badge.draw(in: badgeRect)
+            return true
+        }
+        image.isTemplate = true
+        return image
     }
 }

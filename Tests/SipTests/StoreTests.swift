@@ -104,6 +104,28 @@ struct StoreTests {
         #expect(store.status(on: on(11, 12)) == .none)
     }
 
+    @Test func pace() {
+        // Monday, 8:30–16:30, 1150 ml goal: about 537 ml expected by noon.
+        let clock = TestClock(at(8))
+        let (store, _) = makeStore(clock: clock)
+        #expect(store.pace(at: clock.now) == .beforeStart(store.settings.startTime))
+
+        clock.now = at(12)
+        #expect(store.pace(at: clock.now) == .behind(byML: 537))
+        store.log(400)
+        #expect(store.pace(at: clock.now) == .onTrack(toGoML: 750))
+        store.log(750)
+        #expect(store.pace(at: clock.now) == .goalMet)
+
+        store.undoLast()
+        store.setExcluded(true, on: store.today)
+        #expect(store.pace(at: clock.now) == .onLeave)
+
+        clock.now = on(14, 12) // Saturday
+        store.refreshDay()
+        #expect(store.pace(at: clock.now) == .dayOff)
+    }
+
     @Test func persistsAcrossRelaunch() {
         let clock = TestClock(at(10))
         let (store, dir) = makeStore(clock: clock)

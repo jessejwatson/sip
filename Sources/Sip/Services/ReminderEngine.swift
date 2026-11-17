@@ -6,6 +6,7 @@ final class ReminderEngine {
     struct Reminder: Equatable, Sendable {
         var totalML: Int
         var goalML: Int
+        var unit: VolumeUnit
     }
 
     private let store: Store
@@ -58,7 +59,7 @@ final class ReminderEngine {
         guard decision == .remind else { return }
         lastReminderAt = context.now
         snoozeUntil = nil
-        send(Reminder(totalML: context.totalTodayML, goalML: context.goalTodayML))
+        send(Reminder(totalML: context.totalTodayML, goalML: context.goalTodayML, unit: store.settings.unit))
     }
 
     func snooze() {

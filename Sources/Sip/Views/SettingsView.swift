@@ -32,25 +32,28 @@ struct SettingsView: View {
             }
 
             Section {
+                Picker("Units", selection: $store.settings.volumeUnit) {
+                    Text("Automatic (\(VolumeUnit.automatic().rawValue))").tag(VolumeUnit?.none)
+                    Divider()
+                    Text("Millilitres (ml)").tag(VolumeUnit?.some(.ml))
+                    Text("Fluid ounces (oz)").tag(VolumeUnit?.some(.oz))
+                }
                 LabeledContent("Daily goal") {
                     HStack(spacing: 8) {
-                        Text("\(Volume.litres(store.settings.goalML)) L")
+                        Text(Volume.total(store.settings.goalML, in: unit))
                             .monospacedDigit()
                             .contentTransition(.numericText(value: Double(store.settings.goalML)))
                             .animation(.snappy, value: store.settings.goalML)
-                        Stepper("Daily goal", value: $store.settings.goalML, in: 250...5000, step: 50)
+                        Stepper("Daily goal", value: $store.settings.goalML.goal(in: unit),
+                                in: unit.goalRange, step: unit.goalStep)
                             .labelsHidden()
                     }
                 }
-                Slider(
-                    value: Binding(get: { Double(store.settings.goalML) },
-                                   set: { store.settings.goalML = Int($0 / 50) * 50 }),
-                    in: 250...4000
-                ) {
+                Slider(value: $store.settings.goalML.goal(in: unit), in: unit.goalSliderRange) {
                     Text("Adjust")
                 }
                 LabeledContent("Recommended for your hours") {
-                    Button("Use \(Volume.litres(store.settings.recommendedGoalML)) L") {
+                    Button("Use \(Volume.total(store.settings.recommendedGoalML, in: unit))") {
                         store.settings.goalML = store.settings.recommendedGoalML
                     }
                     .disabled(store.settings.goalML == store.settings.recommendedGoalML)
@@ -58,12 +61,12 @@ struct SettingsView: View {
             } header: {
                 Text("Goal")
             } footer: {
-                FooterText(GoalEditor.guidance)
+                FooterText(GoalEditor.guidance(unit))
             }
 
             Section {
                 ForEach($store.settings.vessels) { $vessel in
-                    VesselRow(vessel: $vessel, canRemove: store.settings.vessels.count > 1,
+                    VesselRow(vessel: $vessel, unit: unit, canRemove: store.settings.vessels.count > 1,
                               canReorder: store.settings.vessels.count > 1) {
                         store.settings.vessels.removeAll { $0.id == vessel.id }
                     } move: { draggedID in
@@ -122,6 +125,8 @@ struct SettingsView: View {
             Text("This deletes your drink history and settings. It can't be undone.")
         }
     }
+
+    private var unit: VolumeUnit { store.settings.unit }
 
     private func time(_ keyPath: WritableKeyPath<UserSettings, TimeOfDay>) -> Binding<Date> {
         Binding(
@@ -190,6 +195,7 @@ private struct NotificationsRow: View {
 
 private struct VesselRow: View {
     @Binding var vessel: Vessel
+    let unit: VolumeUnit
     let canRemove: Bool
     let canReorder: Bool
     let remove: () -> Void
@@ -222,11 +228,12 @@ private struct VesselRow: View {
                 .frame(width: 20)
             TextField("Name", text: $vessel.name, prompt: Text("Name"))
                 .labelsHidden()
-            TextField("Amount", value: $vessel.amountML, format: .number, prompt: Text("ml"))
+            TextField("Amount", value: $vessel.amountML.volume(in: unit),
+                      format: .number.precision(.fractionLength(0...1)), prompt: Text(unit.rawValue))
                 .labelsHidden()
                 .multilineTextAlignment(.trailing)
                 .frame(width: 64)
-            Text("ml")
+            Text(unit.rawValue)
                 .foregroundStyle(.secondary)
             Button(action: remove) {
                 Image(systemName: "minus.circle.fill")
@@ -333,12 +340,17 @@ struct WorkHoursEditor: View {
 struct GoalEditor: View {
     @Binding var settings: UserSettings
 
-    static let guidance = "Based on Australian guidelines of about 2.1–2.6 L of drinks a day. Tea and coffee count. Adjust to suit you, or follow your doctor's advice."
+    static func guidance(_ unit: VolumeUnit) -> String {
+        let range = unit == .ml ? "2.1–2.6 L" : "2.1–2.6 L (71–88 oz)"
+        return "Based on Australian guidelines of about \(range) of drinks a day. Tea and coffee count. Adjust to suit you, or follow your doctor's advice."
+    }
+
+    private var unit: VolumeUnit { settings.unit }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                Text("\(Volume.litres(settings.goalML)) L")
+                Text(Volume.total(settings.goalML, in: unit))
                     .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .contentTransition(.numericText(value: Double(settings.goalML)))
@@ -348,22 +360,19 @@ struct GoalEditor: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Stepper("Goal", value: $settings.goalML, in: 250...5000, step: 50)
+                Stepper("Goal", value: $settings.goalML.goal(in: unit), in: unit.goalRange, step: unit.goalStep)
                     .labelsHidden()
             }
-            Slider(
-                value: Binding(get: { Double(settings.goalML) }, set: { settings.goalML = Int($0 / 50) * 50 }),
-                in: 250...4000
-            )
+            Slider(value: $settings.goalML.goal(in: unit), in: unit.goalSliderRange)
             HStack {
-                Text("Recommended for your hours: \(Volume.litres(settings.recommendedGoalML)) L")
+                Text("Recommended for your hours: \(Volume.total(settings.recommendedGoalML, in: unit))")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button("Use recommended") { settings.goalML = settings.recommendedGoalML }
                     .disabled(settings.goalML == settings.recommendedGoalML)
             }
-            Text(Self.guidance)
+            Text(Self.guidance(unit))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -376,5 +385,19 @@ struct GoalEditor: View {
         let name = vessel.name.lowercased()
         let formatted = count.formatted(.number.precision(.fractionLength(0...1)))
         return count == 1 ? "1 \(name)" : "\(formatted) \(name)s"
+    }
+}
+
+extension Binding where Value == Int {
+    /// A millilitre amount shown and edited in `unit`.
+    func volume(in unit: VolumeUnit) -> Binding<Double> {
+        Binding<Double>(get: { unit.value(wrappedValue) }, set: { wrappedValue = unit.millilitres($0) })
+    }
+
+    /// A millilitre goal shown in `unit`, snapped to the unit's step so steppers land on round numbers.
+    func goal(in unit: VolumeUnit) -> Binding<Double> {
+        let step = unit.goalStep
+        return Binding<Double>(get: { (unit.value(wrappedValue) / step).rounded() * step },
+                               set: { wrappedValue = unit.millilitres(($0 / step).rounded() * step) })
     }
 }
