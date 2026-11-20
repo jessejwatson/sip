@@ -74,7 +74,8 @@ private struct TodayHeader: View {
             let _ = context.date // re-render each minute
             let status = PaceStatus(store: store, now: store.now())
             HStack(spacing: 16) {
-                ProgressRing(fraction: store.todayFraction, tint: status.tint)
+                ProgressRing(fraction: store.todayFraction, tint: status.tint,
+                             ghostFraction: store.behindPaceFraction(at: store.now()))
                     .frame(width: 78, height: 78)
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -108,12 +109,19 @@ private struct TodayHeader: View {
 private struct ProgressRing: View {
     let fraction: Double
     let tint: Color
+    /// Where the user should be by now; drawn as a grey arc under the progress arc when behind pace.
+    var ghostFraction: Double?
     private let lineWidth: CGFloat = 9
 
     var body: some View {
         ZStack {
             Circle()
                 .stroke(.quaternary, lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: max(0.001, min(ghostFraction ?? 0, 1)))
+                .stroke(Color.secondary.opacity(0.4), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .opacity(ghostFraction == nil ? 0 : 1)
             Circle()
                 .trim(from: 0, to: max(0.001, min(fraction, 1)))
                 .stroke(tint.gradient, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
@@ -130,6 +138,7 @@ private struct ProgressRing: View {
             }
         }
         .animation(.spring(duration: 0.6), value: fraction)
+        .animation(.spring(duration: 0.6), value: ghostFraction)
     }
 }
 

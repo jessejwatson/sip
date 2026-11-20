@@ -131,6 +131,13 @@ final class Store {
         return .onTrack(toGoML: goal - total)
     }
 
+    /// Where the ring should have reached by `now` (expected ml / goal), only while behind pace; nil otherwise.
+    func behindPaceFraction(at now: Date) -> Double? {
+        guard case .behind = pace(at: now), todayGoal > 0 else { return nil }
+        let expected = Pacing.expected(goalML: todayGoal, settings: settings, now: now, calendar: calendar)
+        return Double(expected) / Double(todayGoal)
+    }
+
     // MARK: Mutations
 
     func log(_ amountML: Int) {

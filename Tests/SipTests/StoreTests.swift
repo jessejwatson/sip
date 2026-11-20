@@ -126,6 +126,29 @@ struct StoreTests {
         #expect(store.pace(at: clock.now) == .dayOff)
     }
 
+    @Test func behindPaceFraction() {
+        // Monday, 8:30–16:30, 1150 ml goal: 537 ml expected by noon.
+        let clock = TestClock(at(8))
+        let (store, _) = makeStore(clock: clock)
+        #expect(store.behindPaceFraction(at: clock.now) == nil) // before start
+
+        clock.now = at(12)
+        #expect(store.behindPaceFraction(at: clock.now) == 537.0 / 1150.0)
+        store.log(400)
+        #expect(store.behindPaceFraction(at: clock.now) == nil) // on track
+        store.log(750)
+        #expect(store.behindPaceFraction(at: clock.now) == nil) // goal met
+
+        store.undoLast()
+        store.undoLast()
+        store.setExcluded(true, on: store.today)
+        #expect(store.behindPaceFraction(at: clock.now) == nil) // on leave
+
+        clock.now = on(14, 12) // Saturday
+        store.refreshDay()
+        #expect(store.behindPaceFraction(at: clock.now) == nil) // day off
+    }
+
     @Test func persistsAcrossRelaunch() {
         let clock = TestClock(at(10))
         let (store, dir) = makeStore(clock: clock)
