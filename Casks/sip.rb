@@ -1,7 +1,7 @@
 # Copy this file into the tap repo's Casks/ folder. scripts/release.sh fills in version and sha256.
 cask "sip" do
-  version "0.1.3"
-  sha256 "2252e997fc04f52c45807b1eb21e64cf1765685a6baef9fb741f12687f04a22c"
+  version "0.1.4"
+  sha256 "9d27bda85cf25c1c23b9a69f4adfdf6a78eac9bb17b6c2560b8ff133a85ba4a8"
 
   url "https://github.com/jessejwatson/sip/releases/download/v#{version}/Sip-#{version}.zip"
   name "Sip"
